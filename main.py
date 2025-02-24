@@ -1,30 +1,39 @@
-import requests 
-from bs4 import BeautifulSoup 
+from flask import Flask, request, jsonify
+import requests
+from bs4 import BeautifulSoup
 
-url = "https://example.com"  
-response = requests.get(url)  
+app = Flask(__name__)
 
-# Check if request was successful (Status code 200 means success)
-if response.status_code == 200:
-    print("Successfully fetched the webpage!")
-else:
-    print(f"Failed to fetch the webpage, Status Code: {response.status_code}")
 
-soup = BeautifulSoup(response.text, "lxml")  # Parse HTML using lxml parser
-print(soup.prettify())  # Print formatted HTML
+# url = "https://example.com"
+@app.route('/scrape', methods=['POST'])
+def scrape():
+    data = request.get_json()
+    url = data.get('url')
+    
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+    
+    response = requests.get(url)
+    
+    if response.status_code != 200:
+        return jsonify({"error": f"Failed to fetch the webpage, Status Code: {response.status_code}"}), 400
+    
+    soup = BeautifulSoup(response.text, "lxml")
+    
+    title = soup.title.text if soup.title else "No Title Found"
+    headings = [h.text.strip() for h in soup.find_all("h1")]
+    paragraphs = [p.text.strip() for p in soup.find_all("p", class_="example-class")]
+    links = [link.get("href") for link in soup.find_all("a")]
+    
+    return jsonify({
+        "title": title,
+        "headings": headings,
+        "paragraphs": paragraphs,
+        "links": links
+    })
 
-title = soup.title.text  # Extract title text
-print("Page Title:", title)
+if __name__ == '__main__':
+    app.run(debug=True)
 
-headings = soup.find_all("h1")  # Extract all <h1> tags
-for h in headings:
-    print("Heading:", h.text.strip())  # Remove extra spaces
-
-paragraphs = soup.find_all("p", class_="example-class")  # Replace with actual class name
-for p in paragraphs:
-    print("Paragraph:", p.text.strip())
-
-links = soup.find_all("a")  # Find all <a> (anchor) tags
-for link in links:
-    print("Link:", link.get("href"))  # Extract href attribute
 
